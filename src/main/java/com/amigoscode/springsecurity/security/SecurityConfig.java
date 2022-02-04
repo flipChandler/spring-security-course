@@ -2,6 +2,7 @@ package com.amigoscode.springsecurity.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -11,12 +12,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
-import static com.amigoscode.springsecurity.security.UserPermission.COURSE_WRITE;
 import static com.amigoscode.springsecurity.security.UserRole.*;
-import static org.springframework.http.HttpMethod.*;
 
 @Configuration
 @EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private final PasswordEncoder passwordEncoder;
@@ -47,7 +47,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .httpBasic();
     }*/
 
-    // raiz, index, com css e js são white lists, para acessar /api/** tem que ter o role de STUDENT
+    // a ordem dos antMatchers importa
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
@@ -55,10 +55,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .authorizeRequests()
                 .antMatchers("/", "index", "/css/*", "/js/*").permitAll()
                 .antMatchers("/api/**").hasRole(STUDENT.name())
-                .antMatchers(DELETE,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
-                .antMatchers(POST,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
-                .antMatchers(PUT,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
-                .antMatchers(GET,"/management/api/**").hasAnyRole(ADMIN.name(), ADMINTRAINEE.name())
+//                .antMatchers(GET,"/management/api/**").hasAnyRole(ADMIN.name(), ADMINTRAINEE.name())
+//                .antMatchers(DELETE,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
+//                .antMatchers(POST,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
+//                .antMatchers(PUT,"/management/api/**").hasAuthority(COURSE_WRITE.getPermission())
                 .anyRequest()
                 .authenticated()
                 .and()
