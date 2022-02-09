@@ -1,6 +1,10 @@
 package com.amigoscode.springsecurity.security;
 
 import com.amigoscode.springsecurity.auth.ApplicationUserService;
+import com.amigoscode.springsecurity.jwt.JwtConfig;
+import com.amigoscode.springsecurity.jwt.JwtTokenVerifier;
+import com.amigoscode.springsecurity.jwt.JwtUsernameAndPasswordAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -9,10 +13,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-import java.util.concurrent.TimeUnit;
+import javax.crypto.SecretKey;
 
 import static com.amigoscode.springsecurity.security.UserRole.STUDENT;
 
@@ -23,10 +27,44 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private final PasswordEncoder passwordEncoder;
     private final ApplicationUserService applicationUserService;
+    private final JwtConfig jwtConfig;
+    private final SecretKey secretKey;
 
-    public SecurityConfig(PasswordEncoder passwordEncoder, ApplicationUserService applicationUserService) {
+    @Autowired
+    public SecurityConfig(PasswordEncoder passwordEncoder, ApplicationUserService applicationUserService, JwtConfig jwtConfig, SecretKey secretKey) {
         this.passwordEncoder = passwordEncoder;
         this.applicationUserService = applicationUserService;
+        this.jwtConfig = jwtConfig;
+        this.secretKey = secretKey;
+    }
+
+    // jwt token authentication
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .csrf().disable()                                                                           // cross site request forgery     || when disable, spring security is not validating the csrf token given in login
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)                 // session won't be stored in database like in form based auth
+                .and()
+                .addFilter(new JwtUsernameAndPasswordAuthenticationFilter(authenticationManager(), jwtConfig, secretKey))         // authenticationManager() is in WebSecurityConfigurerAdapter
+                .addFilterAfter(new JwtTokenVerifier(jwtConfig, secretKey), JwtUsernameAndPasswordAuthenticationFilter.class)   // registering the filter created
+                .authorizeRequests()
+                .antMatchers("/", "index", "/css/*", "/js/*").permitAll()
+                .antMatchers("/api/**").hasRole(STUDENT.name())
+                .anyRequest()
+                .authenticated();
+    }
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.authenticationProvider(daoAuthenticationProvider());
+    }
+
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setPasswordEncoder(passwordEncoder);
+        provider.setUserDetailsService(applicationUserService);
+        return provider;
     }
 
    /* // qlq request tem que estar autenticado pelo httpBasic
@@ -67,7 +105,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     } */
 
     // form login - by default a session id last 30 minutes
-    @Override
+    /*@Override
     protected void configure(HttpSecurity http) throws Exception {
         http
                 .csrf().disable()                                                   // cross site request forgery     || when disable, spring security is not validating the csrf token given in login
@@ -96,21 +134,5 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     .invalidateHttpSession(true)
                     .deleteCookies("JSESSIONID", "remember-me")
                     .logoutSuccessUrl("/login");
-    }
-
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.authenticationProvider(daoAuthenticationProvider());
-    }
-
-    @Bean
-    public DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setPasswordEncoder(passwordEncoder);
-        provider.setUserDetailsService(applicationUserService);
-        return provider;
-    }
-
-
-
+    }*/
 }
